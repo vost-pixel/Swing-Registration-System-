@@ -1,0 +1,163 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.*;
+
+public class RegistrationForm extends JFrame implements ActionListener {
+    private JTextField nameField, mobileField, dobField, addressField;
+    private JRadioButton maleButton, femaleButton;
+    private JCheckBox termsBox;
+    private JButton submitButton, resetButton;
+    private JTable dataTable;
+
+    public RegistrationForm() {
+        setTitle("Registration Form");
+        setSize(800, 400);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
+
+        // Form Panel
+        JPanel formPanel = new JPanel(new GridLayout(6, 2));
+        formPanel.add(new JLabel("Name:"));
+        nameField = new JTextField();
+        formPanel.add(nameField);
+
+        formPanel.add(new JLabel("Mobile:"));
+        mobileField = new JTextField();
+        formPanel.add(mobileField);
+
+        formPanel.add(new JLabel("Gender:"));
+        JPanel genderPanel = new JPanel(new FlowLayout());
+        maleButton = new JRadioButton("Male");
+        femaleButton = new JRadioButton("Female");
+        ButtonGroup genderGroup = new ButtonGroup();
+        genderGroup.add(maleButton);
+        genderGroup.add(femaleButton);
+        genderPanel.add(maleButton);
+        genderPanel.add(femaleButton);
+        formPanel.add(genderPanel);
+
+        formPanel.add(new JLabel("DOB:"));
+        dobField = new JTextField();
+        formPanel.add(dobField);
+
+        formPanel.add(new JLabel("Address:"));
+        addressField = new JTextField();
+        formPanel.add(addressField);
+
+        termsBox = new JCheckBox("Accept Terms And Conditions");
+        formPanel.add(termsBox);
+
+        submitButton = new JButton("Submit");
+        submitButton.addActionListener(this);
+        resetButton = new JButton("Reset");
+        resetButton.addActionListener(this);
+        formPanel.add(submitButton);
+        formPanel.add(resetButton);
+
+        // Data Table Panel
+        String[] columnNames = {"ID", "Name", "Gender", "Address", "Contact"};
+        Object[][] data = {};
+        dataTable = new JTable(data, columnNames);
+        JScrollPane scrollPane = new JScrollPane(dataTable);
+
+        add(formPanel, BorderLayout.NORTH);
+        add(scrollPane, BorderLayout.CENTER);
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (e.getSource() == submitButton) {
+            String name = nameField.getText();
+            String mobile = mobileField.getText();
+            String gender = maleButton.isSelected() ? "Male" : "Female";
+            String dob = dobField.getText();
+            String address = addressField.getText();
+
+            if (termsBox.isSelected()) {
+                try {
+                    Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/your_database", "username", "password");
+                    String query = "INSERT INTO registration (name, mobile, gender, dob, address) VALUES (?, ?, ?, ?, ?)";
+                    PreparedStatement pst = conn.prepareStatement(query);
+                    pst.setString(1, name);
+                    pst.setString(2, mobile);
+                    pst.setString(3, gender);
+                    pst.setString(4, dob);
+                    pst.setString(5, address);
+                    pst.executeUpdate();
+
+                    JOptionPane.showMessageDialog(this, "Data Submitted Successfully!");
+
+                    // Reset fields
+                    nameField.setText("");
+                    mobileField.setText("");
+                    dobField.setText("");
+                    addressField.setText("");
+                    genderGroup.clearSelection();
+                    termsBox.setSelected(false);
+
+                    // Update table data
+                    loadData();
+
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Please accept terms and conditions!");
+            }
+        } else if (e.getSource() == resetButton) {
+            nameField.setText("");
+            mobileField.setText("");
+            dobField.setText("");
+            addressField.setText("");
+            genderGroup.clearSelection();
+            termsBox.setSelected(false);
+        }
+    }
+
+    private void loadData() {
+        // Load data from database and update table
+        try {
+            Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/your_database", "username", "password");
+            String query = "SELECT * FROM registration";
+            Statement st = conn.createStatement();
+            ResultSet rs = st.executeQuery(query);
+
+            dataTable.setModel(buildTableModel(rs));
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    private static DefaultTableModel buildTableModel(ResultSet rs) throws SQLException {
+        ResultSetMetaData metaData = rs.getMetaData();
+
+        // Names of columns
+        Vector<String> columnNames = new Vector<>();
+        int columnCount = metaData.getColumnCount();
+        for (int column = 1; column <= columnCount; column++) {
+            columnNames.add(metaData.getColumnName(column));
+        }
+
+        // Data of the table
+        Vector<Vector<Object>> data = new Vector<>();
+        while (rs.next()) {
+            Vector<Object> vector = new Vector<>();
+            for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+                vector.add(rs.getObject(columnIndex));
+            }
+            data.add(vector);
+        }
+
+        return new DefaultTableModel(data, columnNames);
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            RegistrationForm form = new RegistrationForm();
+            form.setVisible(true);
+        });
+    }
+}
